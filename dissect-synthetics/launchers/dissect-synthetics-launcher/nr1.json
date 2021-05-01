@@ -1,0 +1,7 @@
+{
+    "schemaType": "LAUNCHER",
+    "id": "dissect-synthetics-launcher",
+    "displayName": "DissectSyntheticsLauncher",
+    "description": "Describe me",
+    "rootNerdletId": "dissect-synthetics-nerdlet"
+}
