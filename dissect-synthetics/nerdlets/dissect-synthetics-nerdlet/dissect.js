@@ -2,8 +2,11 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import {
   Icon,
+  Button,
   Card,
   CardBody,
+  List,
+  ListItem,
   Toast,
   HeadingText,
   Spinner,
@@ -22,28 +25,18 @@ export default class DissectSyntheticsFailures extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      accountId: null,
-      conditionsLoaded: false,
-      apiKeyUrl: null,
-      monitorId: null,
-      allConditions: null,
-      filteredConditions: [],
-      policyIds: [],
-      completed: 0,
       loading: false,
-      loadingConditions: false,
-      showApi: false,
-      noConditions: false,
-      noId: false,
       inLauncher: false,
       noPolicies: false,
-      platformUrlState: null
+      guid:null,
+      failures:null,
     };
   }
 
   componentDidMount() {
     const _self = this;
     const guid = this.props.nerdletState.entityGuid;
+
     this.getMonitorName(guid)
     console.log(`GUID ${guid}"`)
 
@@ -55,53 +48,58 @@ export default class DissectSyntheticsFailures extends React.Component {
     }
   }
 
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
   async getMonitorName(guid) {
+    const _self = this
     // console.log("using guid", guid)
     const gql = `
-            {
-                actor {
-                
-                entity(guid: "${guid}") {
-                    ... on SyntheticMonitorEntity {
-                    guid
-                    name
+                  {
+                    actor {
+                      entity(guid: "${guid}") {
+                        domain
+                        type
+                        ... on SyntheticMonitorEntity {
+                          guid
+                          name
+                          monitorId
+                          monitorSummary {
+                            locationsFailing
+                            locationsRunning
+                            status
+                            successRate
+                          }
+                          monitorType
+                          monitoredUrl
+                          period
+                          recentAlertViolations(count: 10) {
+                            alertSeverity
+                            closedAt
+                            label
+                            level
+                            openedAt
+                            violationId
+                            violationUrl
+                          }
+                        }
+                        nrdbQuery(nrql: "SELECT * FROM SyntheticCheck WHERE result='FAILED'") {
+                          results
+                        }
+                      }
                     }
-                    account{
-                        id
-                    }
-                    entityType
-                    permalink
-                    reporting
-                    type
-                    domain
-                    name
-                }
-                }
-            }
+                  }
             `;
     const monitor = await NerdGraphQuery.query({ query: gql }).then((res) => {
-      //   console.log('Getting Name', res);
+      console.log('Getting Name', res);
       if (res.data.errors) {
         throw new Error(res.data.errors);
       }
       const monitorObj = res.data.actor.entity;
-      console.log('NerdG MonitorName', monitorObj);
+      const failures = monitorObj.nrdbQuery.results
+      console.log('NerdG MonitorName', monitorObj.nrdbQuery.results);
       if (monitorObj) {
-
+        _self.setState({failures})
+        console.log("We got em")
       } else {
-        console.log('No Monitor Name Found');
+        console.log('No Monitor Found');
       }
 
       return monitorObj;
@@ -114,10 +112,6 @@ export default class DissectSyntheticsFailures extends React.Component {
   render() {
     return <PlatformStateContext.Consumer>
               {(platformUrlState) => {
-                {
-                  console.log(`PlatformState ${JSON.stringify(platformUrlState)}`)
-                  this.setState({platformUrlState})
-                }
                 return <>
                 {this.state.inLauncher ? (
                   <>
@@ -135,11 +129,29 @@ export default class DissectSyntheticsFailures extends React.Component {
                 ) : null}
                 
         
-                <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
-                    <GridItem columnSpan={4}>
-                      
-                    </GridItem>
-                </Grid>
+                
+                    
+                      {
+                        this.state.failures ? 
+                        this.state.failures.map((v,i) => {
+                          return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
+                            <GridItem columnSpan={6}>
+                              <Button
+                                type={Button.TYPE.PRIMARY}
+                              >
+                                {v.error}
+                              </Button>
+                              </GridItem>
+                            <GridItem columnSpan={3}>{v.locationLabel}</GridItem>
+                            <GridItem columnSpan={3}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
+                            </Grid>
+                        })
+                        :
+                        null
+                        
+                      }
+                    
+                
                 {this.state.loading ? (
                   <>
                     <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
