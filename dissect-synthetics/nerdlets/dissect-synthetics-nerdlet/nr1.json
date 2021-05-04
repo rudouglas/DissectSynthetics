@@ -2,5 +2,13 @@
     "schemaType": "NERDLET",
     "id": "dissect-synthetics-nerdlet",
     "displayName": "DissectSyntheticsNerdlet",
-    "description": ""
+    "description": "",
+    "context": {
+        "entities": [
+            {
+                "domain": "SYNTH",
+                "type": "MONITOR"
+            }
+        ]
+    }
 }
