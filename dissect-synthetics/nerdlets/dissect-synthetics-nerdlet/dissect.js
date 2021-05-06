@@ -5,6 +5,9 @@ import {
   Button,
   Card,
   CardBody,
+  Modal,
+  BlockText,
+  navigation,
   List,
   ListItem,
   Toast,
@@ -24,12 +27,16 @@ export default class DissectSyntheticsFailures extends React.Component {
 
   constructor(props) {
     super(props);
+    this._onClose = this._onClose.bind(this);
+  
+    this.onUploadFileButtonClick = this.onUploadFileButtonClick.bind(this);
     this.state = {
       loading: false,
       inLauncher: false,
       noPolicies: false,
       guid:null,
       failures:null,
+      hidden: true,
     };
   }
 
@@ -42,7 +49,7 @@ export default class DissectSyntheticsFailures extends React.Component {
 
     if (guid) {
       console.log(guid);
-      
+      _self.setState({guid})
     } else {
       _self.setState({ inLauncher: true });
     }
@@ -107,7 +114,22 @@ export default class DissectSyntheticsFailures extends React.Component {
     return monitor;
   }
 
-  
+  _onClose() {
+    this.setState({ hidden: true });
+  }
+
+  onUploadFileButtonClick = e => {
+    e.preventDefault()
+    const { guid } = this.state;
+    // const guid = this.state.guid;
+    // console.log("GUID", guid)
+    navigation.openStackedNerdlet({
+      id: 'failure-details',
+      urlState: {
+        guid: guid
+      }
+    })
+  }
 
   render() {
     return <PlatformStateContext.Consumer>
@@ -127,31 +149,38 @@ export default class DissectSyntheticsFailures extends React.Component {
                     </Card>
                   </>
                 ) : null}
-                
-        
-                
+                {
+                  this.state.failures ? 
+                  this.state.failures.map((v,i) => {
+                    return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
+                      <GridItem columnSpan={6}>
+                        <Button
+                          type={Button.TYPE.PRIMARY}
+                          onClick={this.onUploadFileButtonClick}
+                        >
+                          {v.error}
+                        </Button>
+                        </GridItem>
+                      <GridItem columnSpan={3}>{v.locationLabel}</GridItem>
+                      <GridItem columnSpan={3}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
+                      </Grid>
+                  })
+                  :
+                  null
+                  
+                }
                     
-                      {
-                        this.state.failures ? 
-                        this.state.failures.map((v,i) => {
-                          return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
-                            <GridItem columnSpan={6}>
-                              <Button
-                                type={Button.TYPE.PRIMARY}
-                              >
-                                {v.error}
-                              </Button>
-                              </GridItem>
-                            <GridItem columnSpan={3}>{v.locationLabel}</GridItem>
-                            <GridItem columnSpan={3}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
-                            </Grid>
-                        })
-                        :
-                        null
-                        
-                      }
-                    
-                
+                    <Modal hidden={this.state.hidden} onClose={this._onClose}>
+                      <HeadingText type={HeadingText.TYPE.HEADING_1}>Modal</HeadingText>
+
+                      <BlockText type={BlockText.TYPE.PARAGRAPH}>
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+                        eiusmod tempor incididunt ut labore et dolore magna aliqua. Dictumst
+                        quisque sagittis purus sit amet.
+                      </BlockText>
+
+                      <Button onClick={this._onClose}>Close</Button>
+                    </Modal>
                 {this.state.loading ? (
                   <>
                     <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
