@@ -58,40 +58,47 @@ export default class FailureCore extends React.Component {
     }
     
     render() {
-      // const timestampDiff = this.props.failure.timestamp - this.state.latestSuccess;
-      const timestampDiff = 10000000
+      const timestampDiff = this.props.failure.timestamp - this.state.latestSuccess;
+      // const timestampDiff = 10000000
       
-      const failedFor = (() => {
-        switch(Math.floor(timestampDiff/(1000 * 60 * 60))){
-          case 0:
-            return Math.floor(timestampDiff / (1000 * 60)) + " Minutes"
-          default:
-            return Math.floor(timestampDiff / (1000 * 60)) + " Hours"
-        }
-      })()
-      console.log(`Failed For: ${failedFor}`);
+      // const failedFor = (() => {
+      //   switch(Math.floor(timestampDiff/(1000 * 60 * 60))){
+      //     case 0:
+      //       return "Mins"
+      //     default:
+      //       return [Math.floor(timestampDiff / (1000 * 60)), "Hrs"]
+      //   }
+      // })()
+
+      const data = [
+        {
+          metadata: {
+            id: 'failed-for',
+            name: 'Failed for',
+            viz: 'main',
+            units_data: {
+              y: "MS",
+            },
+          },
+          data: [
+            { y: timestampDiff }, // Current value.
+          ],
+        }]
+      // console.log(`Failed For: ${failedFor}`);
       return (
         <>
         <h1>{this.props.accountId}</h1>
         <Grid>
-          <Card>
-          <CardHeader title="Failed For" />
-
-            <CardBody>
-              {failedFor}
-            </CardBody>
-          </Card>
           <GridItem columnSpan={2}>
             <BillboardChart
-              accountId={this.props.accountId}
-              query={`SELECT latest(timestamp) AS 'Failing For...' FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'SUCCESS' SINCE 2 weeks ago UNTIL ${this.props.failure.timestamp}`}
+              data={data}
             />
           </GridItem>
           <GridItem columnSpan={2}>
-          <BillboardChart
-            accountId={this.props.accountId}
-            query={`SELECT count(*) AS 'Failures' FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'FAILED' SINCE ${this.state.latestSuccess}`}
-          />
+            <BillboardChart
+              accountId={this.props.accountId}
+              query={`SELECT count(*) AS 'Failures' FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'FAILED' SINCE ${this.state.latestSuccess}`}
+            />
           </GridItem>
         </Grid>
         
