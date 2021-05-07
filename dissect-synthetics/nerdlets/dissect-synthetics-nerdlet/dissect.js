@@ -37,6 +37,7 @@ export default class DissectSyntheticsFailures extends React.Component {
       guid:null,
       failures:null,
       hidden: true,
+      monitorObj: null
     };
   }
 
@@ -74,6 +75,9 @@ export default class DissectSyntheticsFailures extends React.Component {
                             status
                             successRate
                           }
+                          account{
+                            id
+                          }
                           monitorType
                           monitoredUrl
                           period
@@ -95,7 +99,7 @@ export default class DissectSyntheticsFailures extends React.Component {
                   }
             `;
     const monitor = await NerdGraphQuery.query({ query: gql }).then((res) => {
-      console.log('Getting Name', res);
+      // console.log('Getting Name', res);
       if (res.data.errors) {
         throw new Error(res.data.errors);
       }
@@ -103,8 +107,8 @@ export default class DissectSyntheticsFailures extends React.Component {
       const failures = monitorObj.nrdbQuery.results
       console.log('NerdG MonitorName', monitorObj.nrdbQuery.results);
       if (monitorObj) {
-        _self.setState({failures})
-        console.log("We got em")
+        _self.setState({failures, monitorObj})
+        // console.log("We got em")
       } else {
         console.log('No Monitor Found');
       }
@@ -118,15 +122,19 @@ export default class DissectSyntheticsFailures extends React.Component {
     this.setState({ hidden: true });
   }
 
-  onUploadFileButtonClick = e => {
-    e.preventDefault()
-    const { guid } = this.state;
+  onUploadFileButtonClick(v) {
+    console.log(`INDEX: ${JSON.stringify(v)}`)
+
+    const { guid,monitorObj } = this.state;
     // const guid = this.state.guid;
     // console.log("GUID", guid)
     navigation.openStackedNerdlet({
       id: 'failure-details',
       urlState: {
-        guid: guid
+        guid: guid,
+        failure: v,
+        accountId: monitorObj.account.id,
+        monitorId: monitorObj.monitorId
       }
     })
   }
@@ -152,11 +160,11 @@ export default class DissectSyntheticsFailures extends React.Component {
                 {
                   this.state.failures ? 
                   this.state.failures.map((v,i) => {
-                    return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
+                    return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]} index={i}>
                       <GridItem columnSpan={6}>
                         <Button
                           type={Button.TYPE.PRIMARY}
-                          onClick={this.onUploadFileButtonClick}
+                          onClick={() => this.onUploadFileButtonClick(v)}
                         >
                           {v.error}
                         </Button>
