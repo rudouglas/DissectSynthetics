@@ -123,6 +123,7 @@ export default class DissectSyntheticsFailures extends React.Component {
   }
 
   async getTroubleshootingDocs() {
+    // Scripted
     const response = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/simple-scripted-or-scripted-api-non-ping-errors.json");
     const jsonData = await response.json();
     let failureDict = []
@@ -138,7 +139,19 @@ export default class DissectSyntheticsFailures extends React.Component {
     apiDoc = regex3.exec(apiDoc)
     apiDoc = apiDoc[0] + '<div class="collapser'
     apiDoc = apiDoc.match(regex2)
-    let combinedDoc = [...simpleDoc,...apiDoc]
+
+    // Non-scripted
+    const nonResponse = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/non-scripted-monitor-errors.json")
+    const nonData = await nonResponse.json();
+
+    let regex4 = /(?<=\<div class\=\"collapser\-group\"\>)(.*)(?=\<\/div\>)/
+    let nonDoc = nonData.body.replaceAll("\n", "")
+    nonDoc = regex4.exec(nonDoc)
+    nonDoc = nonDoc[0] + '<div class="collapser'
+    nonDoc = nonDoc.match(regex2)
+    console.log(nonDoc)
+
+    let combinedDoc = [...simpleDoc,...apiDoc,...nonDoc]
     for (let i of combinedDoc){
       let result = {}
       let title = /title\=\"(.*?)\"/.exec(i)
@@ -153,16 +166,18 @@ export default class DissectSyntheticsFailures extends React.Component {
         result["cause"] = cause[1]
         result["solution"] = solution[1]
 
-        if(title[1].match(/(\<LOCATOR\>)/i)){
+        if(title[1].match(/(\<LOCATOR\>|\(HOST\)|\(ERROR\)|XXX|\(URL\))/i)){
           console.log("VARIABLE");
           result["variable"] = true
         } else {
           result["variable"] = false
         }
-        if(title[1].match(/(network|page load)/i)){
+        if(title[1].match(/(network|page load|65 seconds|ssl|blockedrequest|http)/i)){
           result["type"] = "Network"
         } else if (title[1].match(/(script|element|syntax|undefined|jobtimeout)/i)){
           result["type"] = "Script"
+        }else if (title[1].match(/(responsevalidation)/i)){
+          result["type"] = "Resource"
         }
         failureDict.push(result)
       }
@@ -179,17 +194,18 @@ export default class DissectSyntheticsFailures extends React.Component {
 
   onUploadFileButtonClick(v) {
     console.log(`INDEX: ${JSON.stringify(v)}`)
-
-    const { guid,monitorObj } = this.state;
+    console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
+    const { guid,monitorObj,failureDict } = this.state;
     // const guid = this.state.guid;
     // console.log("GUID", guid)
     navigation.openStackedNerdlet({
       id: 'failure-details',
       urlState: {
-        guid: guid,
+        guid:guid,
         failure: v,
         accountId: monitorObj.account.id,
-        monitorId: monitorObj.monitorId
+        monitorId: monitorObj.monitorId,
+        failureDict: failureDict
       }
     })
   }

@@ -18,7 +18,8 @@ export default class FailureDetailsNerdlet extends React.Component {
                     guid={nerdletState.guid} 
                     failure={nerdletState.failure} 
                     accountId={nerdletState.accountId}
-                    monitorId={nerdletState.monitorId}>
+                    monitorId={nerdletState.monitorId}
+                    failureDict={nerdletState.failureDict}>
                 </FailureDetails>
             }}
         </NerdletStateContext.Consumer>)
