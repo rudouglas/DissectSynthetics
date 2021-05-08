@@ -30,6 +30,8 @@ export default class DissectSyntheticsFailures extends React.Component {
     this._onClose = this._onClose.bind(this);
   
     this.onUploadFileButtonClick = this.onUploadFileButtonClick.bind(this);
+    this.getTroubleshootingDocs = this.getTroubleshootingDocs.bind(this)
+
     this.state = {
       loading: false,
       inLauncher: false,
@@ -37,7 +39,8 @@ export default class DissectSyntheticsFailures extends React.Component {
       guid:null,
       failures:null,
       hidden: true,
-      monitorObj: null
+      monitorObj: null,
+      failureDict: null
     };
   }
 
@@ -46,6 +49,7 @@ export default class DissectSyntheticsFailures extends React.Component {
     const guid = this.props.nerdletState.entityGuid;
 
     this.getMonitorName(guid)
+    this.getTroubleshootingDocs()
     console.log(`GUID ${guid}"`)
 
     if (guid) {
@@ -118,6 +122,57 @@ export default class DissectSyntheticsFailures extends React.Component {
     return monitor;
   }
 
+  async getTroubleshootingDocs() {
+    const response = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/simple-scripted-or-scripted-api-non-ping-errors.json");
+    const jsonData = await response.json();
+    let failureDict = []
+    let regex1 = /(?<=\<h3 id\=\"simple\-browser\-errors\"\>)(.*)(?=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)/
+    let regex2 = /(?<=\<div\ class\=\"collapser\"\ )(.*?)(?=\<div class\=\"collapser)/g
+    let regex3 = /(?<=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)(.*)/
+
+    let simpleDoc = jsonData.body.replaceAll("\n", "")
+    simpleDoc = regex1.exec(simpleDoc)
+    simpleDoc = simpleDoc[0] + '<div class="collapser'
+    simpleDoc = simpleDoc.match(regex2)
+    let apiDoc = jsonData.body.replaceAll("\n", "");
+    apiDoc = regex3.exec(apiDoc)
+    apiDoc = apiDoc[0] + '<div class="collapser'
+    apiDoc = apiDoc.match(regex2)
+    let combinedDoc = [...simpleDoc,...apiDoc]
+    for (let i of combinedDoc){
+      let result = {}
+      let title = /title\=\"(.*?)\"/.exec(i)
+      let problem = /(?<=\<h3\>Problem\<\/h3\>)(.*?)(?=\<h3)/.exec(i)
+      let cause = /(?<=\<h3\>Cause\<\/h3\>)(.*?)(?=\<\/div)/.exec(i)
+      let solution = /(?<=\<h3\>Solution\<\/h3\>)(.*?)(?=\<h3)/.exec(i)
+      // console.log(i)
+      let found = failureDict.find(fai => fai.message == title[1])
+      if (!found){
+        result["message"] = title[1]
+        result["problem"] = problem[1]
+        result["cause"] = cause[1]
+        result["solution"] = solution[1]
+
+        if(title[1].match(/(\<LOCATOR\>)/i)){
+          console.log("VARIABLE");
+          result["variable"] = true
+        } else {
+          result["variable"] = false
+        }
+        if(title[1].match(/(network|page load)/i)){
+          result["type"] = "Network"
+        } else if (title[1].match(/(script|element|syntax|undefined|jobtimeout)/i)){
+          result["type"] = "Script"
+        }
+        failureDict.push(result)
+      }
+      
+      // result.title
+    }
+    console.log(failureDict)
+    this.setState({failureDict})
+  };
+
   _onClose() {
     this.setState({ hidden: true });
   }
@@ -177,18 +232,6 @@ export default class DissectSyntheticsFailures extends React.Component {
                   null
                   
                 }
-                    
-                    <Modal hidden={this.state.hidden} onClose={this._onClose}>
-                      <HeadingText type={HeadingText.TYPE.HEADING_1}>Modal</HeadingText>
-
-                      <BlockText type={BlockText.TYPE.PARAGRAPH}>
-                        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-                        eiusmod tempor incididunt ut labore et dolore magna aliqua. Dictumst
-                        quisque sagittis purus sit amet.
-                      </BlockText>
-
-                      <Button onClick={this._onClose}>Close</Button>
-                    </Modal>
                 {this.state.loading ? (
                   <>
                     <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>

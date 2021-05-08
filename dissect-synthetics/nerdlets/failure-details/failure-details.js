@@ -89,9 +89,10 @@ export default class FailureCore extends React.Component {
         <>
         <h1>{this.props.accountId}</h1>
         <Grid>
-          <GridItem columnSpan={2}>
+          <GridItem columnSpan={3}>
             <BillboardChart
               data={data}
+              fullwidth
             />
           </GridItem>
           <GridItem columnSpan={2}>
