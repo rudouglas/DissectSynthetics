@@ -123,28 +123,38 @@ export default class DissectSyntheticsFailures extends React.Component {
   }
 
   async getTroubleshootingDocs() {
+    // Scripted
     const response = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/simple-scripted-or-scripted-api-non-ping-errors.json");
     const jsonData = await response.json();
     let failureDict = []
-    let regex1 = /(?<=\<h3 id\=\"simple\-browser\-errors\"\>)(.*)(?=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)/
-    let regex2 = /(?<=\<div\ class\=\"collapser\"\ )(.*?)(?=\<div class\=\"collapser)/g
-    let regex3 = /(?<=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)(.*)/
+    let regex1 = /(?<=\<h3 id\=\"simple\-browser\-errors\"\>)(.*)(?=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)/s
+    let regex2 = /(?<=\<div\ class\=\"collapser\"\ )(.*?)(?=\<div class\=\"collapser)/gs
+    let regex3 = /(?<=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)(.*)/s
 
-    let simpleDoc = jsonData.body.replaceAll("\n", "")
-    simpleDoc = regex1.exec(simpleDoc)
+    let simpleDoc = regex1.exec(jsonData.body)
     simpleDoc = simpleDoc[0] + '<div class="collapser'
     simpleDoc = simpleDoc.match(regex2)
-    let apiDoc = jsonData.body.replaceAll("\n", "");
-    apiDoc = regex3.exec(apiDoc)
+    let apiDoc = regex3.exec(jsonData.body)
     apiDoc = apiDoc[0] + '<div class="collapser'
     apiDoc = apiDoc.match(regex2)
-    let combinedDoc = [...simpleDoc,...apiDoc]
+
+    // Non-scripted
+    const nonResponse = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/non-scripted-monitor-errors.json")
+    const nonData = await nonResponse.json();
+
+    let regex4 = /(?<=\<div class\=\"collapser\-group\"\>)(.*)(?=\<\/div\>)/s
+    let nonDoc = regex4.exec(nonData.body)
+    nonDoc = nonDoc[0] + '<div class="collapser'
+    nonDoc = nonDoc.match(regex2)
+    console.log(nonDoc)
+
+    let combinedDoc = [...simpleDoc,...apiDoc,...nonDoc]
     for (let i of combinedDoc){
       let result = {}
       let title = /title\=\"(.*?)\"/.exec(i)
-      let problem = /(?<=\<h3\>Problem\<\/h3\>)(.*?)(?=\<h3)/.exec(i)
-      let cause = /(?<=\<h3\>Cause\<\/h3\>)(.*?)(?=\<\/div)/.exec(i)
-      let solution = /(?<=\<h3\>Solution\<\/h3\>)(.*?)(?=\<h3)/.exec(i)
+      let problem = /(?<=\<h3\>Problem\<\/h3\>)(.*?)(?=\<h3)/s.exec(i)
+      let cause = /(?<=\<h3\>Cause\<\/h3\>)(.*?)(?=\<\/div)/s.exec(i)
+      let solution = /(?<=\<h3\>Solution\<\/h3\>)(.*?)(?=\<h3)/s.exec(i)
       // console.log(i)
       let found = failureDict.find(fai => fai.message == title[1])
       if (!found){
@@ -153,16 +163,18 @@ export default class DissectSyntheticsFailures extends React.Component {
         result["cause"] = cause[1]
         result["solution"] = solution[1]
 
-        if(title[1].match(/(\<LOCATOR\>)/i)){
+        if(title[1].match(/(\<LOCATOR\>|\(HOST\)|\(ERROR\)|XXX|\(URL\))/i)){
           console.log("VARIABLE");
           result["variable"] = true
         } else {
           result["variable"] = false
         }
-        if(title[1].match(/(network|page load)/i)){
+        if(title[1].match(/(network|page load|65 seconds|ssl|blockedrequest|http)/i)){
           result["type"] = "Network"
         } else if (title[1].match(/(script|element|syntax|undefined|jobtimeout)/i)){
           result["type"] = "Script"
+        }else if (title[1].match(/(responsevalidation)/i)){
+          result["type"] = "Resource"
         }
         failureDict.push(result)
       }
@@ -179,17 +191,18 @@ export default class DissectSyntheticsFailures extends React.Component {
 
   onUploadFileButtonClick(v) {
     console.log(`INDEX: ${JSON.stringify(v)}`)
-
-    const { guid,monitorObj } = this.state;
+    console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
+    const { guid,monitorObj,failureDict } = this.state;
     // const guid = this.state.guid;
     // console.log("GUID", guid)
     navigation.openStackedNerdlet({
       id: 'failure-details',
       urlState: {
-        guid: guid,
+        guid:guid,
         failure: v,
         accountId: monitorObj.account.id,
-        monitorId: monitorObj.monitorId
+        monitorId: monitorObj.monitorId,
+        failureDict: failureDict
       }
     })
   }
