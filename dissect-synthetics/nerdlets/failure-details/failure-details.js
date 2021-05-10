@@ -8,6 +8,7 @@ import {
     NerdGraphQuery,
     BillboardChart
   } from 'nr1';
+import DocCards from './components/doc-cards'
 // https://docs.newrelic.com/docs/new-relic-programmable-platform-introduction
 
 export default class FailureCore extends React.Component {
@@ -101,26 +102,9 @@ export default class FailureCore extends React.Component {
               query={`SELECT count(*) AS 'Failures' FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'FAILED' SINCE ${this.state.latestSuccess}`}
             />
           </GridItem>
-          <GridItem columnSpan={7}>
-          
-            <Card>
-              <CardHeader title="Problem" />
-              <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.props.failureDict[0].problem }} />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader title="Cause" />
-              <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.props.failureDict[0].cause }} />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader title="Solution" />
-              <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.props.failureDict[0].solution }} />
-              </CardBody>
-            </Card>
+          <GridItem columnSpan={3}>
+            <DocCards failureDict={this.props.failureDict} />
+            
           </GridItem>
         </Grid>
         
