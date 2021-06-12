@@ -19,7 +19,8 @@ export default class FailureDetailsNerdlet extends React.Component {
                     failure={nerdletState.failure} 
                     accountId={nerdletState.accountId}
                     monitorId={nerdletState.monitorId}
-                    failureDict={nerdletState.failureDict}>
+                    failureDict={nerdletState.failureDict}
+                    relationships={nerdletState.relationships}>
                 </FailureDetails>
             }}
         </NerdletStateContext.Consumer>)

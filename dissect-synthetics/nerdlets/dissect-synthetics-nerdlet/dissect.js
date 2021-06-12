@@ -5,22 +5,16 @@ import {
   Button,
   Card,
   CardBody,
-  Modal,
-  BlockText,
   navigation,
-  List,
-  ListItem,
-  Toast,
   HeadingText,
   Spinner,
-  Tooltip,
   NerdGraphQuery,
   Link,
   Grid,
   GridItem,
-  TextField,
   PlatformStateContext
 } from 'nr1';
+import { timeRangeToNrql } from '@newrelic/nr1-community';
 // https://docs.newrelic.com/docs/new-relic-programmable-platform-introduction
 
 export default class DissectSyntheticsFailures extends React.Component {
@@ -40,18 +34,23 @@ export default class DissectSyntheticsFailures extends React.Component {
       failures:null,
       hidden: true,
       monitorObj: null,
-      failureDict: null
+      failureDict: null,
+      since: null,
     };
   }
-
-  componentDidMount() {
+  componentDidUpdate(prevProps) {
+    if(this.props.since !== prevProps.since) // Check if it's a new user, you can also use some unique property, like the ID  (this.props.user.id !== prevProps.user.id)
+    {
+      const guid = this.props.nerdletState.entityGuid;
+      this.getMonitorName(guid)
+    }
+  }
+  componentWillMount() {
     const _self = this;
     const guid = this.props.nerdletState.entityGuid;
-
+    
     this.getMonitorName(guid)
     this.getTroubleshootingDocs()
-    console.log(`GUID ${guid}"`)
-
     if (guid) {
       console.log(guid);
       _self.setState({guid})
@@ -60,9 +59,10 @@ export default class DissectSyntheticsFailures extends React.Component {
     }
   }
 
+  
   async getMonitorName(guid) {
     const _self = this
-    // console.log("using guid", guid)
+    const { since } = this.props
     const gql = `
                   {
                     actor {
@@ -95,24 +95,57 @@ export default class DissectSyntheticsFailures extends React.Component {
                             violationUrl
                           }
                         }
-                        nrdbQuery(nrql: "SELECT * FROM SyntheticCheck WHERE result='FAILED'") {
+                        nrdbQuery(nrql: "SELECT * FROM SyntheticCheck WHERE result='FAILED' ${since}") {
                           results
+                        }
+                        relationships {
+                          type
+                          target {
+                            accountId
+                            entity {
+                              account {
+                                id
+                                name
+                              }
+                              domain
+                              entityType
+                              name
+                              permalink
+                              reporting
+                              type
+                            }
+                            entityType
+                          }
+                          source {
+                            entity {
+                              entityType
+                              domain
+                              name
+                              permalink
+                              reporting
+                              type
+                              account {
+                                id
+                                name
+                              }
+                            }
+                          }
                         }
                       }
                     }
                   }
             `;
     const monitor = await NerdGraphQuery.query({ query: gql }).then((res) => {
-      // console.log('Getting Name', res);
+      console.log('Getting Name', res);
       if (res.data.errors) {
         throw new Error(res.data.errors);
       }
       const monitorObj = res.data.actor.entity;
       const failures = monitorObj.nrdbQuery.results
-      console.log('NerdG MonitorName', monitorObj.nrdbQuery.results);
+      console.log('NerdG MonitorName', monitorObj);
       if (monitorObj) {
         _self.setState({failures, monitorObj})
-        // console.log("We got em")
+        console.log("We got em", failures)
       } else {
         console.log('No Monitor Found');
       }
@@ -193,6 +226,8 @@ export default class DissectSyntheticsFailures extends React.Component {
     console.log(`INDEX: ${JSON.stringify(v)}`)
     console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
     const { guid,monitorObj,failureDict } = this.state;
+    // console.log(`Relations ${JSON.stringify(monitorObj.relationships)}`);
+
     // const guid = this.state.guid;
     // console.log("GUID", guid)
     navigation.openStackedNerdlet({
@@ -200,64 +235,68 @@ export default class DissectSyntheticsFailures extends React.Component {
       urlState: {
         guid:guid,
         failure: v,
+        relationships: monitorObj.relationships,
         accountId: monitorObj.account.id,
         monitorId: monitorObj.monitorId,
         failureDict: failureDict
       }
     })
   }
-
+  renderFailures() {
+    if (!this.state.failures) {
+      return (
+        <>
+        <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
+        <Spinner
+          type={Spinner.TYPE.DOT}
+          spacingType={[Spinner.SPACING_TYPE.EXTRA_LARGE]}
+          inline
+        />
+      </>
+      )
+    }
+    return (
+      this.state.failures.length > 0 ? 
+        this.state.failures.map((v,i) => {
+          return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]} index={i} className="failureGrid">
+            <GridItem columnSpan={1}>
+              <Button
+                type={Button.TYPE.PRIMARY}
+                onClick={() => this.onUploadFileButtonClick(v)}
+              >
+                <Icon type={Icon.TYPE.INTERFACE__OPERATIONS__SEARCH__V_ALTERNATE} />
+              </Button>
+            </GridItem>
+            <GridItem columnSpan={5} className="errorSpan">
+              {v.error}
+            </GridItem>
+            <GridItem columnSpan={3} className="locationSpan">{v.locationLabel}</GridItem>
+            <GridItem columnSpan={3} className="timestampSpan">{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
+            </Grid>
+        })
+      : <h3>No failures here</h3>
+    )
+  }
   render() {
-    return <PlatformStateContext.Consumer>
-              {(platformUrlState) => {
-                return <>
-                {this.state.inLauncher ? (
-                  <>
-                    <Card>
-                      <CardBody>
-                        This is the Launcher for the Dissect Synthetics Nerdlet.
-                        To use this, select a{' '}
-                        <Link to="https://one.newrelic.com/launcher/synthetics-nerdlets.home?nerdpacks=local&pane=eyJuZXJkbGV0SWQiOiJzeW50aGV0aWNzLW5lcmRsZXRzLm1vbml0b3ItbGlzdCJ9&platform[timeRange][duration]=1800000&platform[$isFallbackTimeRange]=true">
-                          Synthetic Monitor Entity
-                        </Link>{' '}
-                        and navigate to the application via the left-hand tab
-                      </CardBody>
-                    </Card>
-                  </>
-                ) : null}
-                {
-                  this.state.failures ? 
-                  this.state.failures.map((v,i) => {
-                    return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]} index={i}>
-                      <GridItem columnSpan={6}>
-                        <Button
-                          type={Button.TYPE.PRIMARY}
-                          onClick={() => this.onUploadFileButtonClick(v)}
-                        >
-                          {v.error}
-                        </Button>
-                        </GridItem>
-                      <GridItem columnSpan={3}>{v.locationLabel}</GridItem>
-                      <GridItem columnSpan={3}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
-                      </Grid>
-                  })
-                  :
-                  null
-                  
-                }
-                {this.state.loading ? (
-                  <>
-                    <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
-                    <Spinner
-                      type={Spinner.TYPE.DOT}
-                      spacingType={[Spinner.SPACING_TYPE.EXTRA_LARGE]}
-                      inline
-                    />
-                  </>
-                ) : null}
-                
-              </>
-              }}
-          </PlatformStateContext.Consumer>
+    return (
+      <>
+        {this.state.inLauncher && (
+          <>
+            <Card>
+              <CardBody>
+                This is the Launcher for the Dissect Synthetics Nerdlet.
+                To use this, select a{' '}
+                <Link to="https://one.newrelic.com/launcher/synthetics-nerdlets.home?nerdpacks=local&pane=eyJuZXJkbGV0SWQiOiJzeW50aGV0aWNzLW5lcmRsZXRzLm1vbml0b3ItbGlzdCJ9&platform[timeRange][duration]=1800000&platform[$isFallbackTimeRange]=true">
+                  Synthetic Monitor Entity
+                </Link>{' '}
+                and navigate to the application via the left-hand tab
+              </CardBody>
+            </Card>
+          </>
+        )}
+        {this.renderFailures()}
+        
+      </>
+    )
   }
 }

@@ -1,0 +1,24 @@
+.failureGrid {
+    display: flex;
+    text-align: center;
+    align-items: center;
+}
+
+.errorSpan {
+    height: 100%;
+    vertical-align: middle;
+    margin-left: 5px;
+    padding-right: 25px;
+}
+
+.locationSpan {
+    padding-left: 25px;
+    padding-right: 25px;
+    border-left: 2px solid rgb(247, 35, 35);
+}
+
+.timestampSpan {
+    padding-left: 25px;
+    padding-right: 25px;
+    border-left: 2px solid rgb(247, 35, 35);
+}

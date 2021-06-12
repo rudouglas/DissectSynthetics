@@ -1,0 +1,51 @@
+h3 {
+    padding: 5px;
+}
+.docsSection {
+    width: 35%;
+}
+
+.docCards {
+    height: 100%;
+    font-size: large;
+}
+
+.mainStack {
+    margin-top: 50px;
+    margin-left: 50px;
+}
+
+.stackItem {
+    // border: 1px;
+    // border-style: solid;
+    border-radius: 3px;
+    padding: 5px;
+    background-color: rgb(204, 204, 204);
+    -moz-box-shadow:     0 0 10px #000000;
+    -webkit-box-shadow:  0 0 10px #000000;
+    box-shadow:          0 0 10px #000000;
+}
+
+.relationshipSection {
+    margin-top: 8px;
+    height: 233px;
+}
+
+.relationships {
+    background-color: white;
+    padding: 5px;
+    height: 200px;
+}
+
+.resourcesSection {
+    margin-top: 8px;
+    height: auto;
+}
+
+.solutionCard {
+    margin-top: 8px;
+}
+
+.causeCard {
+    margin-top: 8px;
+}
