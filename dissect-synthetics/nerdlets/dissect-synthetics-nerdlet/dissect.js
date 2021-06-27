@@ -12,9 +12,24 @@ import {
   Link,
   Grid,
   GridItem,
-  PlatformStateContext
+  Popover,
+  PopoverBody,
+  PopoverTrigger,
+  BlockText,
+  Badge,
+  Table,
+  TableHeader,
+  TableRow,
+  TableRowCell,
+  TableHeaderCell,
+  Modal,
+  Tile,
+  TileGroup
 } from 'nr1';
 import { timeRangeToNrql } from '@newrelic/nr1-community';
+import NotesModal from './components/notes-modal';
+import variableErrors from '../static/errorDictionary';
+var _ = require('lodash');
 // https://docs.newrelic.com/docs/new-relic-programmable-platform-introduction
 
 export default class DissectSyntheticsFailures extends React.Component {
@@ -22,8 +37,10 @@ export default class DissectSyntheticsFailures extends React.Component {
   constructor(props) {
     super(props);
     this._onClose = this._onClose.bind(this);
+    this.closeModal = this.closeModal.bind(this);
+    this.openModal = this.openModal.bind(this);
   
-    this.onUploadFileButtonClick = this.onUploadFileButtonClick.bind(this);
+    this.onDissectButtonClick = this.onDissectButtonClick.bind(this);
     this.getTroubleshootingDocs = this.getTroubleshootingDocs.bind(this)
 
     this.state = {
@@ -36,6 +53,8 @@ export default class DissectSyntheticsFailures extends React.Component {
       monitorObj: null,
       failureDict: null,
       since: null,
+      selectedError: null,
+      hideModal: true,
     };
   }
   componentDidUpdate(prevProps) {
@@ -144,8 +163,12 @@ export default class DissectSyntheticsFailures extends React.Component {
       const failures = monitorObj.nrdbQuery.results
       console.log('NerdG MonitorName', monitorObj);
       if (monitorObj) {
-        _self.setState({failures, monitorObj})
-        console.log("We got em", failures)
+        let groupped = _.groupBy(failures,'error')
+        let groupedByArray = Object.keys(groupped).map(function(key){
+          return groupped[key];
+        });
+        _self.setState({failures: groupedByArray, selectedError: groupedByArray[0], monitorObj})
+        console.log("We got em", groupedByArray)
       } else {
         console.log('No Monitor Found');
       }
@@ -160,6 +183,7 @@ export default class DissectSyntheticsFailures extends React.Component {
     const response = await fetch("https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/simple-scripted-or-scripted-api-non-ping-errors.json");
     const jsonData = await response.json();
     let failureDict = []
+    let messageDict = []
     let regex1 = /(?<=\<h3 id\=\"simple\-browser\-errors\"\>)(.*)(?=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)/s
     let regex2 = /(?<=\<div\ class\=\"collapser\"\ )(.*?)(?=\<div class\=\"collapser)/gs
     let regex3 = /(?<=\<h3 id\=\"scripted\-api\-browser\-errors\"\>)(.*)/s
@@ -199,6 +223,9 @@ export default class DissectSyntheticsFailures extends React.Component {
         if(title[1].match(/(\<LOCATOR\>|\(HOST\)|\(ERROR\)|XXX|\(URL\))/i)){
           console.log("VARIABLE");
           result["variable"] = true
+          const res = variableErrors.filter(err => 
+            err.message === title[1])
+          result["rLike"] = res[0].rLike;
         } else {
           result["variable"] = false
         }
@@ -218,11 +245,7 @@ export default class DissectSyntheticsFailures extends React.Component {
     this.setState({failureDict})
   };
 
-  _onClose() {
-    this.setState({ hidden: true });
-  }
-
-  onUploadFileButtonClick(v) {
+  onDissectButtonClick(v) {
     console.log(`INDEX: ${JSON.stringify(v)}`)
     console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
     const { guid,monitorObj,failureDict } = this.state;
@@ -242,8 +265,44 @@ export default class DissectSyntheticsFailures extends React.Component {
       }
     })
   }
-  renderFailures() {
-    if (!this.state.failures) {
+  renderPopoverFailures(failures) {
+    console.log("pop")
+    return (
+      <Table 
+          items={failures}
+      >
+        <TableHeader>
+          <TableHeaderCell 
+              value={({ item }) => item.error}
+              onClick={() => console.log('Clicked')}
+              width="50%"
+          >
+              Unique
+          </TableHeaderCell>
+          <TableHeaderCell 
+              value={({ item }) => item.locationLabel}
+          >
+              Location
+          </TableHeaderCell>
+          <TableHeaderCell 
+              value={({ item }) => item.timestamp}
+          >
+              Timestamp
+          </TableHeaderCell>
+        </TableHeader>
+        {({ item }) => (
+        <TableRow>
+          <TableRowCell>{item.error}</TableRowCell>
+          <TableRowCell>{item.locationLabel}</TableRowCell>
+          <TableRowCell>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(item.timestamp)}</TableRowCell>
+        </TableRow>
+      )}
+      </Table>
+    )
+  }
+  renderFailureSummary() {
+    const {failures} = this.state;
+    if (!failures) {
       return (
         <>
         <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
@@ -256,28 +315,85 @@ export default class DissectSyntheticsFailures extends React.Component {
       )
     }
     return (
-      this.state.failures.length > 0 ? 
-        this.state.failures.map((v,i) => {
-          return <Grid spacingType={[Grid.SPACING_TYPE.LARGE]} index={i} className="failureGrid">
-            <GridItem columnSpan={1}>
-              <Button
-                type={Button.TYPE.PRIMARY}
-                onClick={() => this.onUploadFileButtonClick(v)}
+      failures.length > 0 ? 
+          <GridItem columnSpan={5}>
+            <h3>Error Summaries</h3>
+            <TileGroup  
+              defaultValue="failure-0"
+              selectionType={TileGroup.SELECTION_TYPE.SINGLE}
+            >
+            {failures.map((failure, index) => 
+              <Tile 
+                className="error-tile"
+                value={'failure-' + index}
               >
-                <Icon type={Icon.TYPE.INTERFACE__OPERATIONS__SEARCH__V_ALTERNATE} />
-              </Button>
-            </GridItem>
-            <GridItem columnSpan={5} className="errorSpan">
-              {v.error}
-            </GridItem>
-            <GridItem columnSpan={3} className="locationSpan">{v.locationLabel}</GridItem>
-            <GridItem columnSpan={3} className="timestampSpan">{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(v.timestamp)}</GridItem>
-            </Grid>
-        })
+                <BlockText tagType={BlockText.TYPE.DIV}>
+                    <strong>{failure[0].error}</strong>
+                </BlockText>
+                <Badge type={Badge.TYPE.WARNING}>{`${failure.length} Errors`}</Badge>
+              </Tile>
+            )}
+            </TileGroup>
+            
+          </GridItem>
       : <h3>No failures here</h3>
     )
   }
+  renderFailures() {
+    const { selectedError } = this.state
+    return (
+      selectedError ? 
+          <GridItem columnSpan={7}>
+            <Table 
+              items={selectedError}
+              >
+              <TableHeader>
+                <TableHeaderCell width="10%">
+                    Dissect
+                </TableHeaderCell>
+                <TableHeaderCell>
+                    Unique
+                </TableHeaderCell>
+                <TableHeaderCell width="20%">
+                    Location
+                </TableHeaderCell>
+                <TableHeaderCell>
+                    Timestamp
+                </TableHeaderCell>
+              </TableHeader>
+              {({ item }) => (
+                <TableRow>
+                  <TableRowCell>
+                    <Button
+                      type={Button.TYPE.OUTLINE}
+                      onClick={() => this.onDissectButtonClick(item)}
+                    >
+                      <Icon type={Icon.TYPE.INTERFACE__OPERATIONS__SEARCH__V_ALTERNATE} />
+                    </Button>
+                  </TableRowCell>
+                  <TableRowCell>
+                    {item.error}
+                  </TableRowCell>
+                  <TableRowCell>{item.locationLabel}</TableRowCell>
+                  <TableRowCell>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'long' }).format(item.timestamp)}</TableRowCell>
+                </TableRow>
+              )}
+            </Table>
+          </GridItem>
+      : <h3>No failures here</h3>
+    )
+  }
+  _onClose() {
+    this.setState({ hidden: true });
+  }
+  openModal() {
+    this.setState({hideModal: false})
+  }
+  closeModal() {
+    this.setState({hideModal: true})
+  }
   render() {
+    const { hideModal, failures } = this.state;
     return (
       <>
         {this.state.inLauncher && (
@@ -294,8 +410,11 @@ export default class DissectSyntheticsFailures extends React.Component {
             </Card>
           </>
         )}
-        {this.renderFailures()}
-        
+        <Grid spacingType={[Grid.SPACING_TYPE.LARGE]}>
+          {this.renderFailureSummary()}
+          {failures && this.renderFailures()}
+        </Grid>
+        <NotesModal hidden={hideModal} onClose={this.closeModal} />
       </>
     )
   }

@@ -9,6 +9,7 @@ import {
     BillboardChart
   } from 'nr1';
 // https://docs.newrelic.com/docs/new-relic-programmable-platform-introduction
+import variableErrors from '../../static/errorDictionary';
 
 export default class DocCards extends React.Component {
     constructor(props) {
@@ -17,25 +18,26 @@ export default class DocCards extends React.Component {
           failure: null,
         }
       }
-    componentWillMount() {
-      console.log(`Error Messge ${this.props.error}`)
-      const {error} = this.props
-      let failure
+    // componentWillMount() {
+    //   console.log(`Error Messge ${this.props.error}`)
+    //   const {error, failureDict} = this.props
+    //   let failure = failureDict.filter(failure => failure.message === error)
       
-      if(error.includes('DNS resolution')){
-         failure = this.props.failureDict.filter(failure => failure.message.includes('DNS resolution'))
-      } else if(error.includes('ResponseValidationError')){
-        failure = this.props.failureDict.filter(failure => failure.message.includes('ResponseValidationError'))
-      } else if(error.includes('SSLVerificationError')){
-        failure = this.props.failureDict.filter(failure => failure.message.includes('SSLVerificationError'))
-      } else if(error.includes('connect timed out')){
-        failure = this.props.failureDict.filter(failure => failure.message.includes('onnect timed out'))
-      } else if(error.includes('no such element')){
-        failure = this.props.failureDict.filter(failure => failure.message.includes('no such element'))
-      }
-      console.log(failure)
-      this.setState({failure: failure[0]})
-    }
+    //   if (failure.length === 0) {
+        
+    //     let match;
+    //     for (const err of variableErrors) {
+          
+    //       if (err.rLike.exec(error)) {
+    //         match = err.rLike.exec(error)
+    //         failure = failureDict.filter(failure => failure.message === err.message)
+    //         break;
+    //       }
+    //     }
+    //     console.log("tick",match)
+    //   }
+    //   this.setState({failure: failure[0]})
+    // }
 
     
    
@@ -47,19 +49,19 @@ export default class DocCards extends React.Component {
             <Card>
               <CardHeader title="Problem" />
               <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.state.failure.problem }} />
+                <div dangerouslySetInnerHTML={{ __html: this.props.failure.problem }} />
               </CardBody>
             </Card>
             <Card className="causeCard">
               <CardHeader title="Cause" />
               <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.state.failure.cause }} />
+                <div dangerouslySetInnerHTML={{ __html: this.props.failure.cause }} />
               </CardBody>
             </Card>
             <Card className="solutionCard">
               <CardHeader title="Solution" />
               <CardBody>
-                <div dangerouslySetInnerHTML={{ __html: this.state.failure.solution }} />
+                <div dangerouslySetInnerHTML={{ __html: this.props.failure.solution }} />
               </CardBody>
             </Card>
         
