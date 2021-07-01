@@ -1,35 +1,48 @@
 const variableErrors = [
     {
         "message": "Error: no such element: Unable to locate element: <LOCATOR>",
-        "rLike": /Error: no such element: Unable to locate element:(.*)/i
+        "regex": /Error: no such element: Unable to locate element:(.*)/i,
+        "rLike": 'Error: no such element: Unable to locate element:(.*)'
     },
     {
         "message": "TaskTimedOut: task timed-out waiting for element to be located using: <LOCATOR>",
-        "rLike": /TaskTimedOut: task timed-out waiting for element to be located using:(.*)/s
+        "regex": /TaskTimedOut: task timed-out waiting for element to be located using:(.*)/s,
+        "rLike": 'TaskTimedOut: task timed-out waiting for element to be located using:(.*)'
     },
     {
         "message": "NetworkError: Connect to (HOST) [HOST./IP ADDRESS] failed: connect timed out",
-        "rLike": /NetworkError: Connect to (.*) failed: connect timed out/s
+        "regex": /NetworkError: Connect to (.*) failed: connect timed out/s,
+        "rLike": 'NetworkError: Connect to (.*) failed: connect timed out'
     },
     {
         "message": "NetworkError: Connect to (HOST) [HOST./IP ADDRESS] failed: Connection refused",
-        "rLike": /NetworkError: Connect to (.*) failed: Connection refused/s
+        "regex": /NetworkError: Connect to (.*) failed: Connection refused/s,
+        "rLike": 'NetworkError: Connect to (.*) failed: Connection refused'
     },
     {
         "message": "HTTPError: Server replied with HTTP XXX response code",
-        "rLike": /HTTPError: Server replied with HTTP (.*) response code/s
+        "regex": /HTTPError: Server replied with HTTP (.*) response code/s,
+        "rLike": 'HTTPError: Server replied with HTTP (.*) response code'
     },
     {
         "message": "SSLVerificationError: (ERROR)",
-        "rLike": /SSLVerificationError:(.*)/s
+        "regex": /SSLVerificationError:(.*)/s,
+        "rLike": 'SSLVerificationError:(.*)'
     },
     {
         "message": "NetworkError: DNS resolution failed for host: (HOST)",
-        "rLike": /NetworkError: DNS resolution failed for host: (.*)/s
+        "regex": /NetworkError: DNS resolution failed for host: (.*)/s,
+        "rLike": 'NetworkError: DNS resolution failed for host: (.*)'
     },
     {
         "message": "BlockedRequestError: (URL)",
-        "rLike": /BlockedRequestError:(.*)/s
+        "regex": /BlockedRequestError:(.*)/s,
+        "rLike": 'BlockedRequestError:(.*)'
+    },
+    {
+        "message": "AssertionError",
+        "regex": /AssertionError:(.*)/s,
+        "rLike": 'AssertionError:(.*)'
     }
 ]
 

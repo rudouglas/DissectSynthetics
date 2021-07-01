@@ -19,7 +19,9 @@ import {
     Button,
     navigation,
     Tile,
-    TileGroup
+    TileGroup,
+    Select,
+    SelectItem
   } from 'nr1';
 import DocCards from './components/doc-cards'
 import { css, jsx } from '@emotion/react'
@@ -36,12 +38,20 @@ export default class FailureCore extends React.Component {
           failure: null,
           rLike: null,
           noDocumentation: false,
+          plusMinus: [
+            30,
+            60,
+            120,
+            240
+          ],
+          setPlusMinus: 0
         }
         this.getFailingSince = this.getFailingSince.bind(this);
         this.getResources = this.getResources.bind(this);
       }
     componentWillMount() {
       const { failure: {error}, failureDict} = this.props
+      const assertionMessage = /AssertionError:(.*)/s
       console.log("PROPS ", error)
       this.getFailingSince()
       console.log(`Failure ${JSON.stringify(this.props.failure.locationLabel)}`)
@@ -51,12 +61,14 @@ export default class FailureCore extends React.Component {
       let failure = failureDict.filter(fail => fail.message === error)
       
       if (failure.length === 0) {
-        
         let match;
         for (const err of variableErrors) {
-          
-          if (err.rLike.exec(error)) {
-            match = err.rLike.exec(error)
+          if (err.message === 'AssertionError') {
+            this.setState({rLike: err.rLike})
+            break;
+          }
+          if (err.regex.exec(error)) {
+            match = err.regex.exec(error)
             failure = failureDict.filter(fail => fail.message === err.message)
             this.setState({rLike: err.rLike})
             break;
@@ -78,8 +90,8 @@ export default class FailureCore extends React.Component {
       const gql = `
       {
         actor {
-          account(id: 1970369) {
-            nrql(query: "SELECT latest(timestamp) FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND result = 'SUCCESS' SINCE 2 weeks ago UNTIL ${timestamp}") {
+          account(id: ${accountId}) {
+            nrql(query: "SELECT latest(timestamp) FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND result = 'SUCCESS' SINCE ${timestamp}") {
               results
               nrql
             }
@@ -172,24 +184,35 @@ export default class FailureCore extends React.Component {
         />
       )
     }
+    changeSinceUntil(index) {
+      this.setState({ setPlusMinus: index })
+
+    }
     
     render() {
-      const { failureDict } = this.props
-      const {failure, rLike, latestSuccess, noDocumentation} = this.state
+      const { failureDict, monitorId, accountId, relationships } = this.props
+      const { timestamp, id, locationLabel, error } = this.props.failure
+      const { failure, rLike, latestSuccess, noDocumentation, plusMinus, setPlusMinus } = this.state
+
       const currentTimeInMilliseconds = Date.now();
-      const timestampDiff = this.props.failure.timestamp - latestSuccess;
-      const since = this.props.failure.timestamp - (30 * 60 * 1000);
-      let until = this.props.failure.timestamp + (30 * 60 * 1000);
+      const timestampDiff = latestSuccess ? latestSuccess - timestamp : currentTimeInMilliseconds - timestamp;
+
+      const changePlusMinus = plusMinus[setPlusMinus]
+      const since = timestamp - (changePlusMinus * 60 * 1000);
+      let until = timestamp + (changePlusMinus * 60 * 1000);
       if (until > currentTimeInMilliseconds) {
         until = currentTimeInMilliseconds;
       }
       console.log(`latest Success ${latestSuccess}`)
+      const sameError = rLike ? `AND error RLIKE r'${rLike}'` : `AND error = '${error}'`
+      const notSameMonitor = `AND monitorId != '${monitorId}'`
+      const failingNRQL = `SELECT latest(timestamp) FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND result = 'SUCCESS' SINCE ${timestamp}`
       const successfulResponses = '(200,201,202,203,204,205,206,207,208,250,226,300,301,302,303,304,305,306,307,308)'
-      const resourceNRQL = `SELECT URL,responseCode FROM SyntheticRequest WHERE checkId = '${this.props.failure.id}' AND responseCode NOT IN ${successfulResponses}`
-      const otherMonitorsNRQL = `SELECT count(*) OR 0 FROM SyntheticCheck WHERE result = 'FAILED'  SINCE ${since} UNTIL ${until} FACET monitorName`
-      const otherLocationsNRQL = `SELECT count(*) OR 0 FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'FAILED' AND locationLabel != '${this.props.failure.locationLabel}'  SINCE ${since} UNTIL ${until} FACET locationLabel`
-      const locationSuccessNRQL = `SELECT percentage(count(*), WHERE result = 'SUCCESS') AS 'Location Success Rate' FROM SyntheticCheck WHERE locationLabel = '${this.props.failure.locationLabel}' SINCE ${since} UNTIL ${until}`
-      const failureAmountNRQL = `SELECT count(*) OR 0 AS 'Failures' FROM SyntheticCheck WHERE monitorId = '${this.props.monitorId}' AND result = 'FAILED' SINCE ${since} UNTIL ${until}`
+      const resourceNRQL = `SELECT URL,responseCode FROM SyntheticRequest WHERE checkId = '${id}' AND responseCode NOT IN ${successfulResponses}`
+      const otherMonitorsNRQL = `SELECT count(*) OR 0 FROM SyntheticCheck WHERE result = 'FAILED' ${sameError} ${notSameMonitor} SINCE ${since} UNTIL ${until} FACET monitorName`
+      const otherLocationsNRQL = `SELECT count(*) OR 0 FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND result = 'FAILED' AND locationLabel != '${locationLabel}'  SINCE ${since} UNTIL ${until} FACET locationLabel`
+      const locationSuccessNRQL = `SELECT percentage(count(*), WHERE result = 'SUCCESS') AS 'Location Success Rate' FROM SyntheticCheck WHERE locationLabel = '${locationLabel}' SINCE ${since} UNTIL ${until}`
+      const failureAmountNRQL = `SELECT count(*) OR 0 AS 'Failures' FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND result = 'FAILED' SINCE ${since} UNTIL ${until}`
       const data = [
         {
           metadata: {
@@ -224,9 +247,22 @@ export default class FailureCore extends React.Component {
       };
       
       
+      
       return (
         <>
-        <h1>{this.props.failure.error}</h1>
+        <h1>{error}</h1>
+        <div className="plus-minus-container">
+          <Select 
+            className="plus-minus-select"
+            description="Change the SINCE/UNTIL values of queries" 
+            onChange={(evt, value) => this.changeSinceUntil(value)}
+            value={setPlusMinus}
+          >
+            {plusMinus.map((value, index) => 
+              <SelectItem value={index}>{`+/- ${value} mins`}</SelectItem>
+            )}
+          </Select>
+        </div>
         <Stack 
           directionType={Stack.DIRECTION_TYPE.HORIZONTAL}
           className="mainStack"
@@ -248,8 +284,20 @@ export default class FailureCore extends React.Component {
             : 
             <Card>
               <CardBody>
-                There is currently no Documentation for this error. Please open up a GitHub issue via the Docs page
-                to get this documented.
+                There is currently no Documentation for this error. Please open up a GitHub issue via the <strong>Create Issue</strong> button on the relevant Docs page
+                to get this documented:
+                <br />
+                - <Link 
+                    to='https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/simple-scripted-or-scripted-api-non-ping-errors/'
+                  >
+                    Simple, scripted, or scripted API (non-ping) errors
+                  </Link>
+                <br />
+                - <Link 
+                    to='https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/troubleshooting/non-scripted-monitor-errors/'
+                    >
+                      Non-scripted monitor errors
+                    </Link>
               </CardBody>
             </Card>
             }
@@ -260,12 +308,15 @@ export default class FailureCore extends React.Component {
               <GridItem columnSpan={4}>
                 <Stack directionType={Stack.DIRECTION_TYPE.VERTICAL}>
                   <StackItem className="stackItem">
-                    <Tooltip
-                      text="A short amount of time indicates the issue may be temporary. A longer time may point to more consistent issues!"
-                      placementType={Tooltip.PLACEMENT_TYPE.BOTTOM}
-                    >
-                      <h3>Failing for <Icon type={Icon.TYPE.INTERFACE__INFO__HELP} /></h3>
-                    </Tooltip>
+                    <div className="copy-nrql">
+                      <Tooltip
+                        text="A short amount of time indicates the issue may be temporary. A longer time may point to more consistent issues!"
+                        placementType={Tooltip.PLACEMENT_TYPE.BOTTOM}
+                      >
+                        <h3>Failing for <Icon type={Icon.TYPE.INTERFACE__INFO__HELP} /></h3>
+                      </Tooltip>
+                      {this.renderChartQueryButton(failingNRQL)}      
+                    </div>
                     <BillboardChart
                       data={data}
                       fullwidth
@@ -283,7 +334,7 @@ export default class FailureCore extends React.Component {
                     </div>
                     
                     <BillboardChart
-                      accountId={this.props.accountId}
+                      accountId={accountId}
                       query={failureAmountNRQL}
                     />
                   </StackItem>
@@ -306,7 +357,7 @@ export default class FailureCore extends React.Component {
                       {this.renderChartQueryButton(locationSuccessNRQL)}
                     </div>
                     <BillboardChart
-                      accountId={this.props.accountId}
+                      accountId={accountId}
                       query={locationSuccessNRQL}
                     />
                   </StackItem>
@@ -321,7 +372,7 @@ export default class FailureCore extends React.Component {
                       {this.renderBarChartQueryButton(otherLocationsNRQL)}
                     </div>
                     <BarChart
-                      accountId={this.props.accountId}
+                      accountId={accountId}
                       query={otherLocationsNRQL}
                     />
                   </StackItem>
@@ -339,25 +390,28 @@ export default class FailureCore extends React.Component {
                       {this.renderBarChartQueryButton(otherMonitorsNRQL)}
                     </div>
                   <BarChart
-                    accountId={this.props.accountId}
+                    accountId={accountId}
                     query={otherMonitorsNRQL}
                   />
                 </StackItem>
                 <StackItem className="stackItem relationshipSection">
-                  {this.props.relationships 
+                  {relationships 
                       &&
                       (<>
                       <Tooltip
-                        text="If other monitors are failing with the same error there may be wider issues with your site!"
+                        text="See what Entities this is monitoring, or what Workloads it is part of!"
                         placementType={Tooltip.PLACEMENT_TYPE.BOTTOM}
                       >
                         <h3>Relationships <Icon type={Icon.TYPE.INTERFACE__INFO__HELP} /></h3>
                       </Tooltip>
-                      <List className="relationships">
-                      {this.props.relationships.map((relat, index) => (
-                        <ListItem><Link to={relat.source.entity.permalink}>{relat.source.entity.name + ' (' + relat.source.entity.type + ')'}</Link></ListItem>
+                      <TileGroup className="relationships">
+                        {relationships.map((relat, index) => (
+                          <Tile 
+                            sizeType={Tile.SIZE_TYPE.SMALL}
+                            to={relat.source.entity.permalink}>{relat.source.entity.name + ' (' + relat.source.entity.type + ')'}
+                          </Tile>
                         ))}
-                      </List></>)
+                      </TileGroup></>)
                     }
                 </StackItem>  
               </GridItem>
@@ -369,7 +423,7 @@ export default class FailureCore extends React.Component {
                   {this.renderChartQueryButton(resourceNRQL)}
                 </div>
                 <TableChart
-                  accountId={this.props.accountId}
+                  accountId={accountId}
                   query={resourceNRQL}
                   fullWidth
                 />

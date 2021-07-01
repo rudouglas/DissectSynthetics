@@ -9,6 +9,7 @@ import {
   HeadingText,
   Spinner,
   NerdGraphQuery,
+  NrqlQuery,
   Link,
   Grid,
   GridItem,
@@ -41,7 +42,9 @@ export default class DissectSyntheticsFailures extends React.Component {
     this.openModal = this.openModal.bind(this);
   
     this.onDissectButtonClick = this.onDissectButtonClick.bind(this);
-    this.getTroubleshootingDocs = this.getTroubleshootingDocs.bind(this)
+    this.getTroubleshootingDocs = this.getTroubleshootingDocs.bind(this);
+    this.changeFailureSummary = this.changeFailureSummary.bind(this);
+    this.getErrorDetails = this.getErrorDetails.bind(this);
 
     this.state = {
       loading: false,
@@ -53,12 +56,12 @@ export default class DissectSyntheticsFailures extends React.Component {
       monitorObj: null,
       failureDict: null,
       since: null,
-      selectedError: null,
+      selectedError: 0,
       hideModal: true,
     };
   }
   componentDidUpdate(prevProps) {
-    if(this.props.since !== prevProps.since) // Check if it's a new user, you can also use some unique property, like the ID  (this.props.user.id !== prevProps.user.id)
+    if(this.props.since !== prevProps.since) 
     {
       const guid = this.props.nerdletState.entityGuid;
       this.getMonitorName(guid)
@@ -78,6 +81,32 @@ export default class DissectSyntheticsFailures extends React.Component {
     }
   }
 
+  async getErrorDetails(error, monitorId, accountId) {
+    const { since } = this.props
+    let events;
+    const gql = `{
+      actor {
+        account(id: ${accountId}) {
+          nrql(query: "SELECT * FROM SyntheticCheck WHERE monitorId = '${monitorId}' AND error = '${error[0].error}' ${since} LIMIT MAX") {
+            results
+          }
+        }
+      }
+    }`
+    await NerdGraphQuery.query({ query: gql }).then((res) => {
+      
+      if (res.data.errors) {
+        throw new Error(res.data.errors);
+      }
+      events = res.data.actor.account.nrql.results
+      // console.log('Getting SYNTHTTT', events);
+    });
+    return events
+      
+  }
+    
+    // console.log(groupedByArray)
+    // return groupedByArray
   
   async getMonitorName(guid) {
     const _self = this
@@ -114,7 +143,7 @@ export default class DissectSyntheticsFailures extends React.Component {
                             violationUrl
                           }
                         }
-                        nrdbQuery(nrql: "SELECT * FROM SyntheticCheck WHERE result='FAILED' ${since}") {
+                        nrdbQuery(nrql: "SELECT count(*) FROM SyntheticCheck WHERE result = 'FAILED' FACET error ${since} LIMIT MAX") {
                           results
                         }
                         relationships {
@@ -160,15 +189,21 @@ export default class DissectSyntheticsFailures extends React.Component {
         throw new Error(res.data.errors);
       }
       const monitorObj = res.data.actor.entity;
-      const failures = monitorObj.nrdbQuery.results
-      console.log('NerdG MonitorName', monitorObj);
+      const failures = monitorObj.nrdbQuery.results;
+      const accountId = monitorObj.account.id;
+      const {monitorId} = monitorObj;
       if (monitorObj) {
         let groupped = _.groupBy(failures,'error')
-        let groupedByArray = Object.keys(groupped).map(function(key){
+        let groupedByError = Object.keys(groupped).map(function(key){
           return groupped[key];
         });
-        _self.setState({failures: groupedByArray, selectedError: groupedByArray[0], monitorObj})
-        console.log("We got em", groupedByArray)
+        const promises = groupedByError.map((error) => this.getErrorDetails(error, monitorId, accountId))
+        Promise.all(promises).then((res) => 
+          _self.setState({
+            failures: res,
+            monitorObj
+          })
+        );
       } else {
         console.log('No Monitor Found');
       }
@@ -241,13 +276,13 @@ export default class DissectSyntheticsFailures extends React.Component {
       
       // result.title
     }
-    console.log(failureDict)
+    console.log(`FLAIIIIL ${failureDict}`)
     this.setState({failureDict})
   };
 
   onDissectButtonClick(v) {
     console.log(`INDEX: ${JSON.stringify(v)}`)
-    console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
+    // console.log(`FailureDict ${JSON.stringify(this.state.failureDict[0])}`);
     const { guid,monitorObj,failureDict } = this.state;
     // console.log(`Relations ${JSON.stringify(monitorObj.relationships)}`);
 
@@ -269,25 +304,26 @@ export default class DissectSyntheticsFailures extends React.Component {
     console.log("pop")
     return (
       <Table 
-          items={failures}
+        items={failures}
       >
         <TableHeader>
           <TableHeaderCell 
-              value={({ item }) => item.error}
-              onClick={() => console.log('Clicked')}
-              width="50%"
+            className="dissect-cell"
+            value={({ item }) => item.error}
+            onClick={() => console.log('Clicked')}
+            width="50%"
           >
               Unique
           </TableHeaderCell>
           <TableHeaderCell 
-              value={({ item }) => item.locationLabel}
+            value={({ item }) => item.locationLabel}
           >
-              Location
+            Location
           </TableHeaderCell>
           <TableHeaderCell 
-              value={({ item }) => item.timestamp}
+            value={({ item }) => item.timestamp}
           >
-              Timestamp
+            Timestamp
           </TableHeaderCell>
         </TableHeader>
         {({ item }) => (
@@ -300,55 +336,61 @@ export default class DissectSyntheticsFailures extends React.Component {
       </Table>
     )
   }
+
+  changeFailureSummary(evt, tileValue) {
+    console.log(tileValue)
+    this.setState({ selectedError: tileValue })
+  }
   renderFailureSummary() {
-    const {failures} = this.state;
+    const {failures, selectedError } = this.state;
     if (!failures) {
       return (
         <>
-        <HeadingText type={HeadingText.TYPE.HEADING_1}>Loading</HeadingText>
-        <Spinner
-          type={Spinner.TYPE.DOT}
-          spacingType={[Spinner.SPACING_TYPE.EXTRA_LARGE]}
-          inline
-        />
-      </>
+          <Spinner
+            type={Spinner.TYPE.DOT}
+            spacingType={[Spinner.SPACING_TYPE.EXTRA_LARGE]}
+            inline
+          />
+        </>
       )
     }
     return (
       failures.length > 0 ? 
-          <GridItem columnSpan={5}>
-            <h3>Error Summaries</h3>
-            <TileGroup  
-              defaultValue="failure-0"
-              selectionType={TileGroup.SELECTION_TYPE.SINGLE}
+        <GridItem columnSpan={5}>
+          <h3>Error Summaries</h3>
+          <TileGroup  
+            value={selectedError}
+            onChange={this.changeFailureSummary}
+            selectionType={TileGroup.SELECTION_TYPE.SINGLE}
+          >
+          {failures.map((failure, index) => 
+            <Tile 
+              className="error-tile"
+              value={index}
             >
-            {failures.map((failure, index) => 
-              <Tile 
-                className="error-tile"
-                value={'failure-' + index}
-              >
-                <BlockText tagType={BlockText.TYPE.DIV}>
-                    <strong>{failure[0].error}</strong>
-                </BlockText>
-                <Badge type={Badge.TYPE.WARNING}>{`${failure.length} Errors`}</Badge>
-              </Tile>
-            )}
-            </TileGroup>
-            
-          </GridItem>
-      : <h3>No failures here</h3>
+              <BlockText tagType={BlockText.TYPE.DIV}>
+                  <strong>{failure[0].error}</strong>
+              </BlockText>
+              <Badge type={Badge.TYPE.WARNING}>{`${failure.length} Errors`}</Badge>
+            </Tile>
+          )}
+          </TileGroup>
+          
+        </GridItem>
+    : <h3>No failures here</h3>
     )
   }
   renderFailures() {
-    const { selectedError } = this.state
+    const { selectedError, failures } = this.state
+    console.log(selectedError)
     return (
-      selectedError ? 
+      failures ? 
           <GridItem columnSpan={7}>
             <Table 
-              items={selectedError}
+              items={failures[selectedError]}
               >
               <TableHeader>
-                <TableHeaderCell width="10%">
+                <TableHeaderCell width="80px">
                     Dissect
                 </TableHeaderCell>
                 <TableHeaderCell>

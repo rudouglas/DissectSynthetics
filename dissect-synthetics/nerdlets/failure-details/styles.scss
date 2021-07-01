@@ -1,18 +1,29 @@
 h1 {
-    margin-left: 25px;
+
+    margin: 5px 30px;
     padding-left: 20px;
     border-radius: 3px;
     border-style: solid;
     border-width: 1px;
     border-color: rgb(224, 224, 224);
     padding: 10px;
-    margin-right: 20px;
 }
 h3 {
     padding: 5px;
 }
+.plus-minus-container {
+    width: 100%;
+    height: 50px;
+}
+.plus-minus-select {
+    float: right;
+    padding: 5px;
+    margin-right: 25px;
+    margin-top: auto;
+    margin-bottom: auto;
+}
 .docsSection {
-    width: 30%;
+    width: 35%;
 }
 
 .docCards {
@@ -21,8 +32,9 @@ h3 {
 }
 
 .mainStack {
-    margin-top: 50px;
-    margin-left: 25px;
+    margin: 25px;
+    display: flex;
+    justify-content: space-between;
 }
 
 .stackItem {
@@ -33,14 +45,11 @@ h3 {
 
 .relationshipSection {
     margin-top: 8px;
-    height: 233px;
-    margin-bottom: 20px;
+    height: 256px;
 }
 
 .relationships {
-    background-color: white;
-    padding: 5px;
-    height: 200px;
+    overflow: hidden;
 }
 
 .resourcesSection {
@@ -64,4 +73,18 @@ h3 {
 
 .chart-button {
     height: 30px;
+}
+
+code {
+    background-color: #2b29ad;
+    color: #f8f8f2;
+    border-radius: 0.3em;
+    padding: 1px 3px 4px;
+    white-space: nowrap;
+}
+
+p {
+    font-size: 0.8rem;
+    line-height: 1.8em;
+
 }
