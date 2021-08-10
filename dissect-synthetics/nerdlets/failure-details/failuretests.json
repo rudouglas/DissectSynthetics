@@ -1,9 +1,0 @@
-(100,101,102,103,200,201,202,203,204,205,206,300,301,302,303,304,305,306,307,308)
-SELECT url FROM SyntheticRequest WHERE responseCode NOT IN (100,101,102,103,200,201,202,203,204,205,206,300,301,302,303,304,305,306,307,308) AND 
-SELECT duration FROM SyntheticRequest WHERE jobId = '12e82c75-0905-4bf3-8961-498bc5ef1075' Order By duration DESC
-SELECT URL ,duration FROM SyntheticRequest WHERE responseCode NOT IN (100,101,102,103,200,201,202,203,204,205,206,300,301,302,303,304,305,306,307,308) Order By duration DESC 
-
-
-SELECT * FROM SyntheticCheck  WHERE result ='FAILED' AND monitorId != '' 
-
-SELECT percentage(count(*), WHERE result ='FAILED') FROM SyntheticCheck FACET locationLabel WHERE monitorId = ''
